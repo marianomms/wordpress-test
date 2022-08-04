@@ -1,0 +1,65 @@
+version: "3.4"
+
+x-wordpress-variables: &wordpress-env
+  WORDPRESS_DB_HOST: db:3306
+  WORDPRESS_DB_NAME: ${MYSQL_DATABASE}
+  WORDPRESS_DB_USER: ${MYSQL_USER}
+  WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}
+  WORDPRESS_URL: http://localhost:8000
+  WORDPRESS_TITLE: Testing Site
+  WORDPRESS_ADMIN_USER: admin
+  WORDPRESS_ADMIN_PASSWORD: admin
+  WORDPRESS_ADMIN_EMAIL: foo@bar.com
+
+services:
+  db:
+    container_name: db
+    image: mysql:5.7
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"
+
+  wordpress:
+    container_name: wordpress
+    depends_on:
+      - db
+    image: wordpress:latest
+    ports:
+      - "8000:80"
+    restart: always
+    environment:
+      <<: *wordpress-env
+    volumes:
+      - wp_data:/var/www/html
+      # Increate size for the uploaded files
+      - ./uploads.ini:/usr/local/etc/php/conf.d/uploads.ini
+      # - ./plugins:/var/www/html/wp-content/plugins
+      # - ./themes:/var/www/html/wp-content/themes
+
+  wordpress-cli:
+    container_name: wordpress-cli
+    environment:
+      <<: *wordpress-env
+    depends_on:
+      - db
+      - wordpress
+    image: wordpress:cli
+    # vstm: This is required to run wordpress-cli with the same
+    # user-id as wordpress. This way there are no permission problems
+    # when running the cli
+    user: xfs
+    command: scripts/initialize_wordpress.sh
+    volumes:
+      - ./scripts:/var/www/html/scripts
+      - wp_data:/var/www/html
+
+volumes:
+  db_data:
+  wp_data:
